@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: boutique
+  namespace: argocd
+spec:
+  description: Online Boutique environments on the local platform
+  sourceRepos:
+    - git@github.com:oussema-code/devsecops-platform.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: boutique-staging
+    - server: https://kubernetes.default.svc
+      namespace: boutique-production
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: Deployment
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: ResourceQuota
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: policy
+      kind: PodDisruptionBudget
+  orphanedResources:
+    warn: true

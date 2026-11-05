@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: boutique-staging
+  namespace: argocd
+spec:
+  project: boutique
+  source:
+    repoURL: git@github.com:oussema-code/devsecops-platform.git
+    targetRevision: main
+    path: apps/online-boutique/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: boutique-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff: {duration: 5s, factor: 2, maxDuration: 1m}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: boutique-production
+  namespace: argocd
+spec:
+  project: boutique
+  source:
+    repoURL: git@github.com:oussema-code/devsecops-platform.git
+    targetRevision: main
+    path: apps/online-boutique/overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: boutique-production
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

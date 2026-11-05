@@ -31,9 +31,20 @@ required. The former learning checkpoints are historical, not implementation gat
   generated fake AWS access-key fixture. Trivy secret scan also passed.
 - Local logs are in ignored `.platform/`; no kubeconfigs or credentials are tracked.
 
+## Verified delivery foundation
+
+- Private repository created: https://github.com/oussema-code/devsecops-platform.
+- Initial GitHub Actions validation run succeeded: 42083106997.
+- Argo CD 3.6.1 (chart 10.14.0) installed with a read-only repository deploy key.
+- Staging auto-sync and production explicit sync both reached Synced/Healthy on
+  foundation revision `f55452ca8a9630a68faec797fe82a11d24b463a1`.
+- Release artifact validation tests pass; GitHub workflow syntax passes actionlint.
+
 ## Current work
 
-Publish the approved private repository and verify its manifest/secret CI checks.
+Run all-service image build, vulnerability scan, signing and staging pipeline.
+The user approved public upstream-derived images and explicit production sync.
+This release pipeline has been authored but is not yet verified end to end.
 
 ## Observed limitations
 

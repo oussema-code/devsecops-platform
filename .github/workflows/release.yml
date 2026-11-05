@@ -1,0 +1,128 @@
+name: Build and stage signed release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: application-release
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/validate.yml
+  build:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        service: [adservice, cartservice, checkoutservice, currencyservice, emailservice, frontend, loadgenerator, paymentservice, productcatalogservice, recommendationservice, shippingservice]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Read source lock
+        id: source
+        run: echo "commit=$(python3 -c 'import json; print(json.load(open("upstream.lock.json"))["commit"])')" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: GoogleCloudPlatform/microservices-demo
+          ref: ${{ steps.source.outputs.commit }}
+          path: upstream
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
+        with:
+          cosign-release: v2.6.1
+      - name: Install pinned Trivy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+          gh release download v0.76.2 --repo aquasecurity/trivy --dir tools --pattern '*Linux-64bit.tar.gz' --pattern '*checksums.txt'
+          cd tools
+          grep ' trivy_0.76.2_Linux-64bit.tar.gz$' trivy_0.76.2_checksums.txt | sha256sum --check
+          tar -xzf trivy_0.76.2_Linux-64bit.tar.gz trivy
+          mkdir -p "$HOME/.local/bin"
+          install -m 755 trivy "$HOME/.local/bin/trivy"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build, scan, publish and sign
+        env:
+          SERVICE: ${{ matrix.service }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+          PLATFORM_COMMIT: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/oussema-code/boutique-$SERVICE:$RELEASE_TAG"
+          context="upstream/src/$SERVICE"
+          if [[ "$SERVICE" == cartservice ]]; then context="$context/src"; fi
+          docker buildx build --platform linux/amd64 --load --tag "$image" \
+            --label "org.opencontainers.image.source=https://github.com/oussema-code/devsecops-platform" \
+            --label "org.opencontainers.image.revision=$SOURCE_COMMIT" "$context"
+          mkdir -p artifacts
+          trivy image --no-progress --format cyclonedx --output "artifacts/sbom-$SERVICE.cdx.json" "$image"
+          trivy image --no-progress --severity HIGH,CRITICAL --format json --output "artifacts/vulnerabilities-$SERVICE.json" --exit-code 1 "$image"
+          docker push "$image"
+          export SIGNED_IMAGE="$(docker inspect --format '{{index .RepoDigests 0}}' "$image")"
+          cosign sign --yes "$SIGNED_IMAGE"
+          cosign attest --yes --type cyclonedx --predicate "artifacts/sbom-$SERVICE.cdx.json" "$SIGNED_IMAGE"
+          cosign verify --certificate-identity "https://github.com/oussema-code/devsecops-platform/.github/workflows/release.yml@refs/heads/main" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com "$SIGNED_IMAGE" > /dev/null
+          python3 - <<'PY'
+          import json, os, pathlib
+          s = os.environ['SERVICE']
+          pathlib.Path(f'artifacts/release-{s}.json').write_text(json.dumps({
+              'service': s, 'image': os.environ['SIGNED_IMAGE'],
+              'source_commit': os.environ['SOURCE_COMMIT'],
+              'platform_commit': os.environ['PLATFORM_COMMIT']}) + '\n')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: release-${{ matrix.service }}
+          path: artifacts/
+          if-no-files-found: error
+  stage:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: release-*
+          path: artifacts
+          merge-multiple: true
+      - run: bash scripts/install-ci-kubectl.sh
+      - name: Verify anonymous image access and update GitOps
+        run: |
+          set -euo pipefail
+          python3 -m pip install -r requirements-dev.txt
+          python3 scripts/stage-release.py artifacts
+          # GHCR packages start private. Never promote images the cluster cannot pull.
+          for manifest in artifacts/release-*.json; do
+            image="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["image"])' "$manifest")"
+            docker pull "$image"
+          done
+          make test
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/online-boutique/overlays/staging
+          git diff --cached --quiet && exit 0
+          git commit -m 'Promote scanned and signed application release to staging'
+          git push origin HEAD:main

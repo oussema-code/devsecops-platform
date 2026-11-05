@@ -55,6 +55,9 @@ flowchart LR
 | 2026-11-05 | Cilium with Hubble | Enforce network policies and inspect flows; more components than kindnet. |
 | 2026-11-05 | Staging and production namespaces in one cluster | Affordable local promotion and isolation testing; shared control plane and host. |
 | 2026-11-05 | Private `oussema-code/devsecops-platform` GitHub repository | Approved hosting destination for platform source and GitHub Actions. |
+| 2026-11-05 | Build all eleven application images | Complete delivery coverage, with additional GitHub runner time. |
+| 2026-11-05 | Production requires explicit Argo CD sync | Separate configuration promotion from operator deployment approval. |
+| 2026-11-05 | Public upstream-derived GHCR images | Anonymous cluster pulls; platform repository stays private. |
 
 ## Application request flow
 
