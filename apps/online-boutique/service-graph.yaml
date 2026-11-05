@@ -1,0 +1,21 @@
+loadgenerator:
+  frontend: 8080
+frontend:
+  productcatalogservice: 3550
+  currencyservice: 7000
+  cartservice: 7070
+  recommendationservice: 8080
+  shippingservice: 50051
+  checkoutservice: 5050
+  adservice: 9555
+checkoutservice:
+  productcatalogservice: 3550
+  shippingservice: 50051
+  paymentservice: 50051
+  emailservice: 8080
+  currencyservice: 7000
+  cartservice: 7070
+recommendationservice:
+  productcatalogservice: 3550
+cartservice:
+  redis-cart: 6379

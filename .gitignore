@@ -1,0 +1,11 @@
+/.lab/
+/microservices-demo/
+/.platform/
+__pycache__/
+*.pyc
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.env
+*.pem

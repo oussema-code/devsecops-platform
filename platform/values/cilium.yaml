@@ -1,0 +1,31 @@
+ipam:
+  mode: kubernetes
+kubeProxyReplacement: false
+image:
+  pullPolicy: IfNotPresent
+operator:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+  ui:
+    enabled: true

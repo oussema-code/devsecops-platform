@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: boutique-production
+resources:
+- ../../base
+- namespace.yaml
+- resource-quota.yaml
+- disruption-budgets.yaml
+replicas:
+- name: adservice
+  count: 2
+- name: shippingservice
+  count: 2
+- name: checkoutservice
+  count: 2
+- name: currencyservice
+  count: 2
+- name: emailservice
+  count: 2
+- name: productcatalogservice
+  count: 2
+- name: frontend
+  count: 2
+- name: recommendationservice
+  count: 2
+- name: loadgenerator
+  count: 0
+- name: cartservice
+  count: 2
+- name: redis-cart
+  count: 1
+- name: paymentservice
+  count: 2
