@@ -18,14 +18,20 @@ k wait nodes --all --for=condition=Ready --timeout=60s || fail "nodes not Ready"
 python3 -m unittest discover -s tests || fail "tests"
 
 step "Kyverno: 2 admission replicas, signature policy in Enforce"
-bash scripts/security-up.sh || fail "security-up"
+if [[ "$(k -n kyverno get deployment kyverno-admission-controller -o jsonpath='{.status.readyReplicas}' 2>/dev/null)" == 2 &&
+      "$(k get clusterpolicy boutique-release-signatures -o jsonpath='{.spec.validationFailureAction}' 2>/dev/null)" == Enforce ]]; then
+  echo "Already done: 2 ready admission replicas, policy in Enforce."
+else
+  bash scripts/security-up.sh || fail "security-up"
+fi
 k -n kyverno rollout status deployment/kyverno-admission-controller --timeout=300s || fail "kyverno admission rollout"
 k -n kyverno get pods -l app.kubernetes.io/component=admission-controller -o wide
 k get clusterpolicy boutique-release-signatures -o jsonpath='{.spec.validationFailureAction}{"\n"}'
 
 step "Admission proof (server-side dry runs; nothing is created)"
 probe() {  # $1 name, $2 image -> prints admission result
-  cat <<YAML | k -n boutique-staging create --dry-run=server -f - 2>&1
+  echo "  checking $2 ..." >&2
+  cat <<YAML | timeout 90 kubectl --kubeconfig "$PLATFORM_KUBECONFIG" --context "$PLATFORM_CONTEXT" --request-timeout=60s -n boutique-staging create --dry-run=server -f - 2>&1 || echo "probe exit $?"
 apiVersion: v1
 kind: Pod
 metadata: {name: admission-probe-$1, labels: {app: admission-probe}}
@@ -56,8 +62,8 @@ echo "PASS: signed workload restarted under Enforce"
 
 step "Redis restore drill (production backup -> new claim -> verified load)"
 stamp="$(date +%Y%m%d-%H%M%S)"; backup=".platform/backups/production-drill-$stamp.rdb"; claim="redis-restore-drill-${stamp,,}"
-python3 scripts/redis-snapshot.py production backup "$backup" || fail "redis backup"
-python3 scripts/redis-snapshot.py production restore "$backup" "$claim" || fail "redis restore"
+timeout 300 python3 scripts/redis-snapshot.py production backup "$backup" || fail "redis backup"
+timeout 600 python3 scripts/redis-snapshot.py production restore "$backup" "$claim" || fail "redis restore"
 k -n boutique-production delete pvc "$claim" --wait=false
 echo "PASS: backup restored and loaded by an isolated Redis (drill claim removed)"
 
@@ -72,7 +78,7 @@ if ! confirm "Stop node $victim for about 8 minutes?"; then echo "Worker drill s
   ok=0; bad=0; first_ok=""
   while (( $(date +%s) - start < 480 )); do
     t=$(( $(date +%s) - start ))
-    if python3 -c 'import importlib.util as u,sys; s=u.spec_from_file_location("v","scripts/verify-platform.py"); m=u.module_from_spec(s); s.loader.exec_module(m); m.checkout("boutique-production")' >/dev/null 2>&1; then
+    if timeout 60 python3 -c 'import importlib.util as u,sys; s=u.spec_from_file_location("v","scripts/verify-platform.py"); m=u.module_from_spec(s); s.loader.exec_module(m); m.checkout("boutique-production")' >/dev/null 2>&1; then
       ok=$((ok+1)); echo "t+${t}s checkout OK"
     else
       bad=$((bad+1)); echo "t+${t}s checkout FAILED"
