@@ -1,0 +1,17 @@
+{
+  "source_commit": "5b608cb1dfe317d05e4f1bb8c99b7618452fde87",
+  "platform_commit": "48ce2951d37a48ac7b973401ab8f91345a013c69",
+  "images": {
+    "adservice": "ghcr.io/oussema-code/boutique-adservice@sha256:4ab16a4c35ca0aad7de5fcfebde19463dbc7a79303ce82fa375a58b01f3d33b7",
+    "cartservice": "ghcr.io/oussema-code/boutique-cartservice@sha256:08da152783c3530af4359cbfb38d6747bdbbb005fdf2b9132a1a0a446db5bd49",
+    "checkoutservice": "ghcr.io/oussema-code/boutique-checkoutservice@sha256:73aeb3019177acd5ac0b35424fcf401ac4a1fcbe899d05562eee0a08e1b19f38",
+    "currencyservice": "ghcr.io/oussema-code/boutique-currencyservice@sha256:a325118b153b71878cc3adbebf497642a4e0b472ec4b22ea43338c0ded1d0162",
+    "emailservice": "ghcr.io/oussema-code/boutique-emailservice@sha256:de6d400b505d6d9454b12842c97edf2963e7d8b8ea79b5fec6dfd912cb105132",
+    "frontend": "ghcr.io/oussema-code/boutique-frontend@sha256:c441b77feb958fdd86ac3cd1e3794fdfe0c891dc6b10c27d5d34a0ff51bf5cd0",
+    "loadgenerator": "ghcr.io/oussema-code/boutique-loadgenerator@sha256:ccf964b3462948e30a8862b495fc4b04e887f5e0aadfe4dafc181ee5d0119755",
+    "paymentservice": "ghcr.io/oussema-code/boutique-paymentservice@sha256:0187741b784a9a09ee1fe3543e1da6bced6ca8903816c1773b86ccbf5957ca90",
+    "productcatalogservice": "ghcr.io/oussema-code/boutique-productcatalogservice@sha256:775151e943e37b899cf7a477db194a5d8ea4d45b50ec3d4d530b7bf5bec15676",
+    "recommendationservice": "ghcr.io/oussema-code/boutique-recommendationservice@sha256:5633e82921c683b3552a0e3fe66b156dc889186355afae8a1423ce100c045b69",
+    "shippingservice": "ghcr.io/oussema-code/boutique-shippingservice@sha256:040ee2b091437760e46212c63fbfcf9746585c92d8764a174072b763fcd3818d"
+  }
+}

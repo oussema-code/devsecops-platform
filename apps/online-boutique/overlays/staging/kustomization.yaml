@@ -19,7 +19,7 @@ replicas:
 - name: productcatalogservice
   count: 1
 - name: frontend
-  count: 0  # Deployment is the Rollout's template only
+  count: 0
 - name: recommendationservice
   count: 1
 - name: loadgenerator
@@ -35,7 +35,38 @@ patches:
     group: argoproj.io
     kind: Rollout
     name: frontend
-  patch: |
-    - op: replace
-      path: /spec/replicas
-      value: 1
+  patch: "- op: replace\n  path: /spec/replicas\n  value: 1\n"
+images:
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/adservice
+  newName: ghcr.io/oussema-code/boutique-adservice
+  digest: sha256:4ab16a4c35ca0aad7de5fcfebde19463dbc7a79303ce82fa375a58b01f3d33b7
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/cartservice
+  newName: ghcr.io/oussema-code/boutique-cartservice
+  digest: sha256:08da152783c3530af4359cbfb38d6747bdbbb005fdf2b9132a1a0a446db5bd49
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/checkoutservice
+  newName: ghcr.io/oussema-code/boutique-checkoutservice
+  digest: sha256:73aeb3019177acd5ac0b35424fcf401ac4a1fcbe899d05562eee0a08e1b19f38
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/currencyservice
+  newName: ghcr.io/oussema-code/boutique-currencyservice
+  digest: sha256:a325118b153b71878cc3adbebf497642a4e0b472ec4b22ea43338c0ded1d0162
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/emailservice
+  newName: ghcr.io/oussema-code/boutique-emailservice
+  digest: sha256:de6d400b505d6d9454b12842c97edf2963e7d8b8ea79b5fec6dfd912cb105132
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
+  newName: ghcr.io/oussema-code/boutique-frontend
+  digest: sha256:c441b77feb958fdd86ac3cd1e3794fdfe0c891dc6b10c27d5d34a0ff51bf5cd0
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/loadgenerator
+  newName: ghcr.io/oussema-code/boutique-loadgenerator
+  digest: sha256:ccf964b3462948e30a8862b495fc4b04e887f5e0aadfe4dafc181ee5d0119755
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/paymentservice
+  newName: ghcr.io/oussema-code/boutique-paymentservice
+  digest: sha256:0187741b784a9a09ee1fe3543e1da6bced6ca8903816c1773b86ccbf5957ca90
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/productcatalogservice
+  newName: ghcr.io/oussema-code/boutique-productcatalogservice
+  digest: sha256:775151e943e37b899cf7a477db194a5d8ea4d45b50ec3d4d530b7bf5bec15676
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/recommendationservice
+  newName: ghcr.io/oussema-code/boutique-recommendationservice
+  digest: sha256:5633e82921c683b3552a0e3fe66b156dc889186355afae8a1423ce100c045b69
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/shippingservice
+  newName: ghcr.io/oussema-code/boutique-shippingservice
+  digest: sha256:040ee2b091437760e46212c63fbfcf9746585c92d8764a174072b763fcd3818d
