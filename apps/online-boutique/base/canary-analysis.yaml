@@ -1,0 +1,62 @@
+# Each canary step runs the same mock customer journey as `make verify`, only
+# against the candidate Pods. Any failed run aborts the rollout automatically.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: storefront-checkout
+spec:
+  args:
+    - name: canary-url
+  metrics:
+    - name: candidate-checkout
+      count: 3
+      interval: 20s
+      failureLimit: 0
+      provider:
+        job:
+          metadata:
+            labels:
+              app: canary-check
+          spec:
+            backoffLimit: 0
+            activeDeadlineSeconds: 120
+            ttlSecondsAfterFinished: 900
+            template:
+              metadata:
+                labels:
+                  app: canary-check
+              spec:
+                restartPolicy: Never
+                automountServiceAccountToken: false
+                securityContext:
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  seccompProfile:
+                    type: RuntimeDefault
+                containers:
+                  - name: checkout
+                    # Upstream load generator: already pinned and running in staging; has Python 3.
+                    image: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/loadgenerator:v0.10.7@sha256:f86f07c0da48bc00e7843e060b6811b56b1ad8a184d3962f5e80e15f42370cc8
+                    command: [python3, -B, /check/storefront-check.py, --url, "{{args.canary-url}}"]
+                    env:
+                      - name: PYTHONDONTWRITEBYTECODE
+                        value: "1"
+                    resources:
+                      requests: {cpu: 50m, memory: 64Mi}
+                      limits: {cpu: 200m, memory: 128Mi}
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      privileged: false
+                      readOnlyRootFilesystem: true
+                      capabilities:
+                        drop: [ALL]
+                    volumeMounts:
+                      - name: check
+                        mountPath: /check
+                        readOnly: true
+                volumes:
+                  - name: check
+                    configMap:
+                      name: storefront-check
+                      defaultMode: 0444

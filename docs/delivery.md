@@ -49,6 +49,20 @@ When all checks pass, CI commits the digest set to staging. Argo CD then deploys
 it. CI uses a write-scoped token only in the staging-update job; build jobs have
 package publishing and OIDC permissions. Pull-request validation is read-only.
 
+## Progressive frontend delivery
+
+The storefront frontend is released by Argo Rollouts, not a plain Deployment update.
+Every new frontend template first runs at 50% of the replicas. It must pass a
+checkout analysis against only the candidate Pods before receiving 100%. A failed
+check aborts automatically, scales the candidate down and leaves the stable version
+serving. The analysis Job uses the load generator image, so the release pipeline's
+digest update and signature policy cover it like the workloads. Argo CD reports an
+aborted Rollout as Degraded. In production this happens after the explicit sync.
+
+The first hand-over from Deployment to Rollout uses `make rollout-migrate` before the
+change reaches `main`. It creates the Rollout next to the running Deployment so the
+following sync that sets the Deployment to zero replicas never empties the storefront.
+
 ## Production promotion and rollback
 
 After staging acceptance, copy its `images` entries and `release.json` to the

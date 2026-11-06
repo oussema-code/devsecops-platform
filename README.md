@@ -8,8 +8,10 @@ production namespaces, digest-pinned application images, restricted Pod
 security, explicit network policies, replicas/disruption budgets, automated
 manifest checks, and checkout/isolation verification. See
 [implementation status](IMPLEMENTATION_STATUS.md) for what has actually passed.
-GitOps, the full security pipeline, telemetry, LocalStack, and advanced recovery
-remain roadmap items until their implementation is recorded there.
+Since then: Argo CD GitOps (staging auto, production explicit), persistent Redis
+with backup/restore, the metrics/logs/traces stack, a signed-release pipeline, a
+frontend canary with automatic abort, and an OpenTofu/LocalStack AWS lab. Some of
+these are authored but not yet verified on the cluster; the status file lists which.
 
 ## Run locally
 
@@ -59,5 +61,9 @@ previously verified lab baseline. Source is pinned independently in
 and is never used implicitly as the release source.
 
 This is a local production-style platform, not an Internet-facing production
-deployment. Three containers still share one host. Redis cart storage remains
-ephemeral; persistence and disaster recovery need a separate architecture decision.
+deployment. Three containers still share one host. Redis uses one persistent local
+volume per environment; node loss requires restoring a backup.
+
+More targets: `make observability-up`, `make security-up`, `make rollouts-up`,
+`make rollout-migrate`, `make canary-drill`, and the AWS lab
+(`make aws-up aws-plan aws-apply aws-verify aws-down`, see [docs/aws-lab.md](docs/aws-lab.md)).

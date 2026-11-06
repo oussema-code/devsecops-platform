@@ -1,0 +1,23 @@
+name: boutique-aws
+services:
+  localstack:
+    container_name: boutique-aws-localstack
+    image: localstack/localstack-pro:2026.10.6@sha256:f94401988db4c01a5b2634d37d698a9b11c93f74c1ad0f7a8849f5ebd73dcbdc
+    env_file: ../../.platform/localstack.env
+    environment:
+      MAIN_CONTAINER_NAME: boutique-aws-localstack
+      LAMBDA_DOCKER_NETWORK: boutique-aws
+      PERSISTENCE: '1'
+    ports: ['127.0.0.1:14566:4566']
+    volumes:
+      - state:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./verify.py:/lab/verify.py:ro
+    networks: [aws]
+    healthcheck:
+      test: ['CMD', 'awslocal', 'sts', 'get-caller-identity']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+volumes: {state: {}}
+networks: {aws: {name: boutique-aws}}

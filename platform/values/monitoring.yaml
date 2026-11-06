@@ -71,3 +71,10 @@ additionalPrometheusRulesMap:
             labels: {severity: warning}
             annotations:
               summary: 'Catalog probe averages over two seconds in {{ $labels.environment }}'
+          - alert: FrontendCanaryAborted
+            expr: max by (namespace, name) (rollout_info{phase=~"Degraded|Error"}) > 0
+            for: 1m
+            labels: {severity: warning}
+            annotations:
+              summary: 'Rollout {{ $labels.name }} aborted or degraded in {{ $labels.namespace }}'
+              action: 'Stable Pods keep serving. Inspect the failed AnalysisRun, then revert the release in Git.'

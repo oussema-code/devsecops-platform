@@ -58,6 +58,29 @@ flowchart LR
 | 2026-11-05 | Build all eleven application images | Complete delivery coverage, with additional GitHub runner time. |
 | 2026-11-05 | Production requires explicit Argo CD sync | Separate configuration promotion from operator deployment approval. |
 | 2026-11-05 | Public upstream-derived GHCR images | Anonymous cluster pulls; platform repository stays private. |
+| 2026-11-05 | Persistent Redis volumes plus backup/restore | Carts survive Pod restarts; node loss needs a restore. |
+| 2026-11-05 | Maintain a reviewed patch set for the eleven image builds | Independent remediation path; patches are this project's maintenance. |
+| 2026-11-05 | Kyverno signatures in Audit until the first signed release | Running upstream images keep working; switch to Enforce afterwards. |
+| 2026-11-05 | Maintained LocalStack with a locally supplied token | Current emulator; requires a free account token kept out of Git. |
+| 2026-11-06 | Canary the frontend first with checkout analysis and automatic abort | Customer-journey check on the candidate; backends need their own checks later. |
+
+## Frontend canary
+
+```mermaid
+flowchart LR
+  Git[Git: frontend template / image digest] --> Argo[Argo CD sync]
+  Argo --> Dep[frontend Deployment<br/>replicas 0, template only]
+  Dep -. workloadRef .-> Ro[frontend Rollout]
+  Ro --> Stable[Stable ReplicaSet]
+  Ro --> Cand[Candidate ReplicaSet<br/>50% of replicas]
+  Svc[Service frontend] --> Stable
+  Svc --> Cand
+  CSvc[Service frontend-canary] --> Cand
+  Ro --> AR[AnalysisRun: checkout Job x3]
+  AR -->|via frontend-canary| CSvc
+  AR -->|all pass| Promote[Promote to 100%]
+  AR -->|any fail| Abort[Abort: scale candidate down, stable keeps serving]
+```
 
 ## Application request flow
 
@@ -94,3 +117,5 @@ has been introduced.
 - [Cilium on kind](https://docs.cilium.io/en/stable/installation/kind/)
 - [Online Boutique pinned source](https://github.com/GoogleCloudPlatform/microservices-demo/tree/5b608cb1dfe317d05e4f1bb8c99b7618452fde87)
 - [Argo CD automated reconciliation](https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/)
+- [Argo Rollouts workloadRef](https://argo-rollouts.readthedocs.io/en/stable/migrating/#reference-deployment-from-rollout)
+- [Argo Rollouts Job analysis](https://argo-rollouts.readthedocs.io/en/stable/analysis/job/)

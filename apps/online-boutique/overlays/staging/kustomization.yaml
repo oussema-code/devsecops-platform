@@ -19,7 +19,7 @@ replicas:
 - name: productcatalogservice
   count: 1
 - name: frontend
-  count: 1
+  count: 0  # Deployment is the Rollout's template only
 - name: recommendationservice
   count: 1
 - name: loadgenerator
@@ -30,3 +30,12 @@ replicas:
   count: 1
 - name: paymentservice
   count: 1
+patches:
+- target:
+    group: argoproj.io
+    kind: Rollout
+    name: frontend
+  patch: |
+    - op: replace
+      path: /spec/replicas
+      value: 1

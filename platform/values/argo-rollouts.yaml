@@ -1,0 +1,20 @@
+installCRDs: true
+keepCRDs: true
+controller:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 256Mi}
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: monitoring
+# The dashboard has had unauthenticated mutating endpoints; keep it off.
+# Use `kubectl get rollout` or the Argo CD UI instead.
+dashboard:
+  enabled: false
+notifications:
+  secret:
+    create: false

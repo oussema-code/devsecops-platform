@@ -1,15 +1,35 @@
-.PHONY: cluster-up deploy gitops-up verify test storefront production hubble argocd status
+.PHONY: cluster-up deploy gitops-up observability-up security-up rollouts-up rollout-migrate canary-drill verify test storefront production hubble argocd status aws-up aws-plan aws-apply aws-verify aws-down
 cluster-up:
 	bash scripts/cluster-up.sh
 deploy:
 	bash scripts/deploy-apps.sh
 gitops-up:
 	bash scripts/gitops-up.sh
+observability-up:
+	bash scripts/observability-up.sh
+security-up:
+	bash scripts/security-up.sh
+rollouts-up:
+	bash scripts/rollouts-up.sh
+rollout-migrate:
+	bash scripts/migrate-frontend-rollout.sh
+canary-drill:
+	python3 scripts/canary-drill.py
 verify:
 	python3 scripts/verify-platform.py
 test:
 	python3 -m unittest discover -s tests -v
 	bash -n scripts/*.sh
+aws-up:
+	bash scripts/aws-lab.sh up
+aws-plan:
+	bash scripts/aws-lab.sh plan
+aws-apply:
+	bash scripts/aws-lab.sh apply
+aws-verify:
+	bash scripts/aws-lab.sh verify
+aws-down:
+	bash scripts/aws-lab.sh down
 storefront:
 	kubectl --kubeconfig .platform/kubeconfig --context kind-devsecops-platform -n boutique-staging port-forward --address 127.0.0.1 service/frontend 18081:80
 production:

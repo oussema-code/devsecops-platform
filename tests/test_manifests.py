@@ -15,7 +15,7 @@ def validate(objects):
     services = {x["metadata"]["name"]: x for x in objects if x["kind"] == "Service"}
     policies = {x["metadata"]["name"]: x["spec"] for x in objects if x["kind"] == "NetworkPolicy"}
     assert len(deployments) == 12
-    assert len(services) == 11
+    assert len(services) == 12  # 11 application Services plus the frontend canary Service
     assert policies["default-deny"]["podSelector"] == {}
     assert set(policies["default-deny"]["policyTypes"]) == {"Ingress", "Egress"}
     assert not policies["default-deny"].get("ingress")
@@ -60,11 +60,63 @@ def validate(objects):
                                for rule in policy.get(direction, [])), (name, dest, direction, target)
     for name, service in services.items():
         assert service["spec"].get("type", "ClusterIP") == "ClusterIP"
-        assert service["spec"]["selector"] == deployments[name]["spec"]["template"]["metadata"]["labels"]
+        owner = "frontend" if name == "frontend-canary" else name
+        assert service["spec"]["selector"] == deployments[owner]["spec"]["template"]["metadata"]["labels"]
     for policy in policies.values():
         for direction, peers in [("ingress", "from"), ("egress", "to")]:
             for rule in policy.get(direction, []):
                 assert rule.get(peers) and rule.get("ports"), "Unrestricted network rule"
+
+
+def validate_canary(objects):
+    """The frontend Rollout must gate promotion on a checkout against the candidate Pods."""
+    by_kind = lambda kind: {x["metadata"]["name"]: x for x in objects if x["kind"] == kind}
+    rollout = by_kind("Rollout")["frontend"]
+    deployment = by_kind("Deployment")["frontend"]
+    assert deployment["spec"]["replicas"] == 0, "Deployment must not run Pods beside the Rollout"
+    assert rollout["spec"]["workloadRef"] == {"apiVersion": "apps/v1", "kind": "Deployment",
+                                              "name": "frontend", "scaleDown": "never"}
+    assert rollout["spec"]["selector"] == deployment["spec"]["selector"]
+    canary = rollout["spec"]["strategy"]["canary"]
+    assert canary["maxUnavailable"] == 0
+    steps = canary["steps"]
+    weights = [s["setWeight"] for s in steps if "setWeight" in s]
+    assert weights[-1] == 100 and all(w < 100 for w in weights[:-1]) and len(weights) >= 2
+    analysis_index = next(i for i, s in enumerate(steps) if "analysis" in s)
+    assert analysis_index < len(steps) - 1, "Analysis must run before full promotion"
+    analysis = steps[analysis_index]["analysis"]
+    service = by_kind("Service")[canary["canaryService"]]
+    template = by_kind("AnalysisTemplate")[analysis["templates"][0]["templateName"]]
+    url = next(a["value"] for a in analysis["args"] if a["name"] == "canary-url")
+    assert url == "http://" + service["metadata"]["name"], "Analysis must target only the canary Pods"
+    metric = template["spec"]["metrics"][0]
+    assert metric["failureLimit"] == 0
+    job = metric["provider"]["job"]["spec"]
+    assert job["backoffLimit"] == 0 and job["activeDeadlineSeconds"] <= 300
+    pod = job["template"]["spec"]
+    assert pod["automountServiceAccountToken"] is False
+    assert pod["securityContext"]["runAsNonRoot"] is True
+    assert pod["securityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
+    for c in pod["containers"]:
+        assert re.search(r"@sha256:[0-9a-f]{64}$", c["image"]), c["image"]
+        assert c["securityContext"]["allowPrivilegeEscalation"] is False
+        assert c["securityContext"]["readOnlyRootFilesystem"] is True
+        assert "ALL" in c["securityContext"]["capabilities"]["drop"]
+        assert set(c["resources"]["limits"]) >= {"cpu", "memory"}
+    configmaps = by_kind("ConfigMap")
+    for volume in pod["volumes"]:
+        assert volume["configMap"]["name"] in configmaps
+    check_label = job["template"]["metadata"]["labels"]["app"]
+    target_port = service["spec"]["ports"][0]["targetPort"]
+    policies = [x["spec"] for x in objects if x["kind"] == "NetworkPolicy"]
+    def allows(selected, direction, peers, peer_app):
+        return any(p["podSelector"].get("matchLabels", {}).get("app") == selected and
+                   any(any(x.get("podSelector", {}).get("matchLabels", {}).get("app") == peer_app for x in r.get(peers, []))
+                       and {"protocol": "TCP", "port": target_port} in r.get("ports", [])
+                       for r in p.get(direction, []))
+                   for p in policies)
+    assert allows(check_label, "egress", "to", "frontend"), "Canary check egress blocked"
+    assert allows("frontend", "ingress", "from", check_label), "Frontend ingress blocks canary check"
 
 
 class ManifestTests(unittest.TestCase):
@@ -116,10 +168,35 @@ class ManifestTests(unittest.TestCase):
         budgets = {x["metadata"]["name"] for x in objects if x["kind"] == "PodDisruptionBudget"}
         for d in (x for x in objects if x["kind"] == "Deployment"):
             name = d["metadata"]["name"]
-            expected = 0 if name == "loadgenerator" else 1 if name == "redis-cart" else 2
+            expected = 0 if name in ("loadgenerator", "frontend") else 1 if name == "redis-cart" else 2
             self.assertEqual(d["spec"]["replicas"], expected)
             if expected == 2:
                 self.assertIn(name, budgets)
+        rollout = next(x for x in objects if x["kind"] == "Rollout")
+        self.assertEqual(rollout["spec"]["replicas"], 2)
+        self.assertIn("frontend", budgets)
+
+    def test_frontend_canary_contract(self):
+        for env, objects in self.rendered.items():
+            with self.subTest(env=env):
+                validate_canary(objects)
+
+    def test_rejects_canary_without_analysis(self):
+        objects = copy.deepcopy(self.rendered["production"])
+        rollout = next(x for x in objects if x["kind"] == "Rollout")
+        rollout["spec"]["strategy"]["canary"]["steps"] = [{"setWeight": 100}]
+        with self.assertRaises(AssertionError):
+            validate_canary(objects)
+
+    def test_rejects_canary_check_blocked_by_policy(self):
+        objects = copy.deepcopy(self.rendered["staging"])
+        objects = [x for x in objects if not (x["kind"] == "NetworkPolicy" and x["metadata"]["name"] == "frontend-canary-check")]
+        with self.assertRaises(AssertionError):
+            validate_canary(objects)
+
+    def test_canary_check_matches_verify_journey(self):
+        self.assertEqual((ROOT / "scripts/smoke-test.py").read_bytes(),
+                         (ROOT / "apps/online-boutique/base/storefront-check.py").read_bytes())
 
 
 if __name__ == "__main__":

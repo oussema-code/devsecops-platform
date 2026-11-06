@@ -1,0 +1,50 @@
+# Argo Rollouts owns frontend Pods. The Deployment stays in Git as the Pod template
+# source (workloadRef) and is held at zero replicas by each overlay.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: frontend
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+    scaleDown: never
+  strategy:
+    canary:
+      canaryService: frontend-canary
+      maxSurge: 1
+      maxUnavailable: 0
+      steps:
+        - setWeight: 50
+        - analysis:
+            templates:
+              - templateName: storefront-checkout
+            args:
+              - name: canary-url
+                value: http://frontend-canary
+        - setWeight: 100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-canary
+  labels:
+    app: frontend
+spec:
+  type: ClusterIP
+  # Argo Rollouts adds the canary ReplicaSet's pod-template-hash to this selector.
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP

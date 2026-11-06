@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: boutique-release-signatures
+  annotations:
+    policies.kyverno.io/description: Audit images against the platform release workflow while the first signed release is under review.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: verify-release-signature
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [boutique-staging, boutique-production]
+      verifyImages:
+        - imageReferences: ['*']
+          required: true
+          mutateDigest: false
+          verifyDigest: true
+          attestors:
+            - entries:
+                - keyless:
+                    subject: https://github.com/oussema-code/devsecops-platform/.github/workflows/release.yml@refs/heads/main
+                    issuer: https://token.actions.githubusercontent.com
+                    rekor:
+                      url: https://rekor.sigstore.dev

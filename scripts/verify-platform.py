@@ -16,6 +16,36 @@ def kubectl(*args):
     return subprocess.check_output(K + list(args), text=True)
 
 
+def checkout(ns):
+    """Run the mock customer journey through a temporary loopback tunnel."""
+    # Let kubectl choose an unused local port, then read the bound port from its output.
+    with tempfile.TemporaryFile(mode="w+t") as log:
+        proc = subprocess.Popen(K + ["-n", ns, "port-forward", "--address", "127.0.0.1",
+                                     "service/frontend", ":80"], stdout=log, stderr=log)
+        try:
+            for _ in range(100):
+                log.seek(0)
+                output = log.read()
+                lines = [line for line in output.splitlines() if line.startswith("Forwarding from 127.0.0.1:")]
+                if lines:
+                    port = lines[0].split(":")[1].split()[0]
+                    break
+                if proc.poll() is not None:
+                    raise RuntimeError(output)
+                time.sleep(0.1)
+            else:
+                raise RuntimeError("Port-forward did not start: " + output)
+            subprocess.run([sys.executable, str(ROOT / "scripts/smoke-test.py"),
+                            "--url", f"http://127.0.0.1:{port}"], check=True)
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+
 def verify():
     nodes = json.loads(kubectl("get", "nodes", "-o", "json"))["items"]
     assert len(nodes) == 3, f"Expected 3 platform nodes, got {len(nodes)}"
@@ -34,33 +64,12 @@ def verify():
         ready_services = {s["metadata"]["labels"]["kubernetes.io/service-name"]
                           for s in slices if any(e.get("conditions", {}).get("ready")
                                                  for e in s.get("endpoints", []))}
-        assert len(ready_services) == 11, f"Missing Service endpoints in {ns}: {ready_services}"
-        # Let kubectl choose an unused local port, then read the bound port from its output.
-        with tempfile.TemporaryFile(mode="w+t") as log:
-            proc = subprocess.Popen(K + ["-n", ns, "port-forward", "--address", "127.0.0.1",
-                                         "service/frontend", ":80"], stdout=log, stderr=log)
-            try:
-                for _ in range(100):
-                    log.seek(0)
-                    output = log.read()
-                    lines = [line for line in output.splitlines() if line.startswith("Forwarding from 127.0.0.1:")]
-                    if lines:
-                        port = lines[0].split(":")[1].split()[0]
-                        break
-                    if proc.poll() is not None:
-                        raise RuntimeError(output)
-                    time.sleep(0.1)
-                else:
-                    raise RuntimeError("Port-forward did not start: " + output)
-                subprocess.run([sys.executable, str(ROOT / "scripts/smoke-test.py"),
-                                "--url", f"http://127.0.0.1:{port}"], check=True)
-            finally:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait()
+        services = {x["metadata"]["name"] for x in json.loads(kubectl("-n", ns, "get", "services", "-o", "json"))["items"]}
+        assert len(services) == 12 and services <= ready_services, f"Missing Service endpoints in {ns}: {services - ready_services}"
+        rollout = json.loads(kubectl("-n", ns, "get", "rollout", "frontend", "-o", "json"))
+        assert rollout["status"].get("phase") == "Healthy", f"frontend Rollout in {ns}: {rollout['status'].get('phase')}"
+        assert rollout["status"].get("availableReplicas", 0) == rollout["spec"]["replicas"], f"frontend Rollout in {ns}"
+        checkout(ns)
         print(f"PASS: {ns} deployments, Service endpoints, and checkout", flush=True)
     code = '''
 import socket
