@@ -76,6 +76,16 @@ class ManifestTests(unittest.TestCase):
                     if x["kind"] != "Namespace":
                         self.assertEqual(x["metadata"]["namespace"], "boutique-" + env)
 
+    def test_redis_uses_protected_claim_and_one_writer(self):
+        for objects in self.rendered.values():
+            deployment = next(d for d in objects if d["kind"] == "Deployment" and d["metadata"]["name"] == "redis-cart")
+            volumes = deployment["spec"]["template"]["spec"]["volumes"]
+            claim = next(d for d in objects if d["kind"] == "PersistentVolumeClaim")
+            self.assertEqual(volumes, [{"name": "redis-data", "persistentVolumeClaim": {"claimName": claim["metadata"]["name"]}}])
+            self.assertEqual(deployment["spec"]["strategy"]["type"], "Recreate")
+            self.assertEqual(deployment["spec"]["replicas"], 1)
+            self.assertIn("Prune=false", claim["metadata"]["annotations"]["argocd.argoproj.io/sync-options"])
+
     def test_rejects_mutable_image(self):
         objects = copy.deepcopy(self.rendered["staging"])
         next(x for x in objects if x["kind"] == "Deployment")["spec"]["template"]["spec"]["containers"][0]["image"] = "redis:latest"
