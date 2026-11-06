@@ -3,12 +3,19 @@
 set -uo pipefail
 cd "$(dirname -- "${BASH_SOURCE[0]}")/.."
 source scripts/common.sh
-env="${1:-staging}"; ns="boutique-$env"
+env="${1:-staging}"; ns="boutique-$env"; sync="${2:-}"
 out=".platform/release-check-$env.txt"
 exec > >(tee "$out") 2>&1
 echo "===== $(date) $ns"
 git pull -q --ff-only origin main && git log --oneline -1
 k -n argocd annotate application "boutique-$env" argocd.argoproj.io/refresh=hard --overwrite >/dev/null
+if [[ $env == production && $sync == --sync ]]; then
+  # Running with --sync is the explicit production approval.
+  echo "== explicit production sync to $(git rev-parse --short HEAD), approved by $USER"
+  sleep 5
+  k -n argocd patch application boutique-production --type merge -p \
+    "{\"operation\":{\"initiatedBy\":{\"username\":\"$USER\"},\"sync\":{\"revision\":\"$(git rev-parse HEAD)\",\"syncOptions\":[\"CreateNamespace=true\",\"ServerSideApply=true\",\"RespectIgnoreDifferences=true\"]}}}"
+fi
 echo "== waiting for Argo CD and the frontend Rollout (up to 15 min)"
 for _ in $(seq 1 180); do
   app=$(k -n argocd get application "boutique-$env" -o jsonpath='{.status.sync.revision} {.status.sync.status} {.status.health.status}')
