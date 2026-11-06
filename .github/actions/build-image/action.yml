@@ -1,0 +1,62 @@
+name: Build and scan a Boutique image
+description: Apply a reviewed patch to the exact upstream commit and scan the resulting image
+inputs:
+  service: {description: Service name, required: true}
+  image: {description: Local image tag, required: true}
+outputs:
+  source-commit:
+    description: Pinned upstream revision
+    value: ${{ steps.source.outputs.commit }}
+runs:
+  using: composite
+  steps:
+      - name: Read source lock
+        shell: bash
+        id: source
+        run: echo "commit=$(python3 -c 'import json; print(json.load(open("upstream.lock.json"))["commit"])')" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: GoogleCloudPlatform/microservices-demo
+          ref: ${{ steps.source.outputs.commit }}
+          path: upstream
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Apply reviewed patch for this service
+        shell: bash
+        env:
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          git -C upstream apply --check "$GITHUB_WORKSPACE/build/patches/$SERVICE.patch"
+          git -C upstream apply "$GITHUB_WORKSPACE/build/patches/$SERVICE.patch"
+      - name: Install pinned Trivy
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+          gh release download v0.76.2 --repo aquasecurity/trivy --dir tools --pattern '*Linux-64bit.tar.gz' --pattern '*checksums.txt'
+          cd tools
+          grep ' trivy_0.76.2_Linux-64bit.tar.gz$' trivy_0.76.2_checksums.txt | sha256sum --check
+          tar -xzf trivy_0.76.2_Linux-64bit.tar.gz trivy
+          mkdir -p "$HOME/.local/bin"
+          install -m 755 trivy "$HOME/.local/bin/trivy"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build and scan
+        shell: bash
+        env:
+          SERVICE: ${{ inputs.service }}
+          IMAGE_TAG: ${{ inputs.image }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+        run: |
+          set -euo pipefail
+          image="$IMAGE_TAG"
+          context="upstream/src/$SERVICE"
+          if [[ "$SERVICE" == cartservice ]]; then context="$context/src"; fi
+          docker buildx build --platform linux/amd64 --load --tag "$image" \
+            --label "org.opencontainers.image.source=https://github.com/oussema-code/devsecops-platform" \
+            --label "org.opencontainers.image.revision=$SOURCE_COMMIT" "$context"
+          mkdir -p artifacts
+          trivy image --no-progress --format cyclonedx --output "artifacts/sbom-$SERVICE.cdx.json" "$image"
+          trivy image --no-progress --severity HIGH,CRITICAL --format json --output "artifacts/vulnerabilities-$SERVICE.json" --exit-code 1 "$image"

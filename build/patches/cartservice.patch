@@ -1,0 +1,22 @@
+diff --git a/src/cartservice/src/Dockerfile b/src/cartservice/src/Dockerfile
+index 5f669ebc..3496f221 100644
+--- a/src/cartservice/src/Dockerfile
++++ b/src/cartservice/src/Dockerfile
+@@ -16,7 +16,7 @@
+ ARG BUILDPLATFORM=linux/amd64
+ 
+ # https://mcr.microsoft.com/product/dotnet/sdk
+-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.100-noble@sha256:c7445f141c04f1a6b454181bd098dcfa606c61ba0bd213d0a702489e5bd4cd71 AS builder
++FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble@sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e AS builder
+ ARG TARGETARCH=amd64
+ WORKDIR /app
+ COPY cartservice.csproj .
+@@ -33,7 +33,7 @@ RUN dotnet publish cartservice.csproj \
+     -o /cartservice
+ 
+ # https://mcr.microsoft.com/product/dotnet/runtime-deps
+-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.0-noble-chiseled@sha256:b857c8cb8d929183cfe4c6dd9994abba92a2639dd2dbaf06005379f815991604
++FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:e9346023014b406b9bc8be969b3aa4d39efa3a43b6abcc495f01be566acb10e9
+ 
+ WORKDIR /app
+ COPY --from=builder /cartservice .

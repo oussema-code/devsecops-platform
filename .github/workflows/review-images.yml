@@ -1,0 +1,34 @@
+name: Review patched images
+on:
+  pull_request:
+    paths:
+      - 'build/**'
+      - '.github/actions/build-image/**'
+      - 'upstream.lock.json'
+      - '.github/workflows/review-images.yml'
+permissions:
+  contents: read
+concurrency:
+  group: image-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        service: [adservice, cartservice, checkoutservice, currencyservice, emailservice, frontend, loadgenerator, paymentservice, productcatalogservice, recommendationservice, shippingservice]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/build-image
+        with:
+          service: ${{ matrix.service }}
+          image: boutique-review-${{ matrix.service }}:candidate
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: scan-${{ matrix.service }}
+          path: artifacts/
