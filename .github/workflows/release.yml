@@ -25,16 +25,12 @@ jobs:
         service: [adservice, cartservice, checkoutservice, currencyservice, emailservice, frontend, loadgenerator, paymentservice, productcatalogservice, recommendationservice, shippingservice]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Read source lock
-        id: source
-        run: echo "commit=$(python3 -c 'import json; print(json.load(open("upstream.lock.json"))["commit"])')" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build and scan patched image
+        id: candidate
+        uses: ./.github/actions/build-image
         with:
-          repository: GoogleCloudPlatform/microservices-demo
-          ref: ${{ steps.source.outputs.commit }}
-          path: upstream
-          persist-credentials: false
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+          service: ${{ matrix.service }}
+          image: ghcr.io/oussema-code/boutique-${{ matrix.service }}:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
@@ -43,36 +39,15 @@ jobs:
       - uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
         with:
           cosign-release: v2.6.1
-      - name: Install pinned Trivy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p tools
-          gh release download v0.76.2 --repo aquasecurity/trivy --dir tools --pattern '*Linux-64bit.tar.gz' --pattern '*checksums.txt'
-          cd tools
-          grep ' trivy_0.76.2_Linux-64bit.tar.gz$' trivy_0.76.2_checksums.txt | sha256sum --check
-          tar -xzf trivy_0.76.2_Linux-64bit.tar.gz trivy
-          mkdir -p "$HOME/.local/bin"
-          install -m 755 trivy "$HOME/.local/bin/trivy"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Build, scan, publish and sign
+      - name: Publish and sign scanned image
         env:
           SERVICE: ${{ matrix.service }}
-          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+          SOURCE_COMMIT: ${{ steps.candidate.outputs.source-commit }}
           PLATFORM_COMMIT: ${{ github.sha }}
           RELEASE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
           image="ghcr.io/oussema-code/boutique-$SERVICE:$RELEASE_TAG"
-          context="upstream/src/$SERVICE"
-          if [[ "$SERVICE" == cartservice ]]; then context="$context/src"; fi
-          docker buildx build --platform linux/amd64 --load --tag "$image" \
-            --label "org.opencontainers.image.source=https://github.com/oussema-code/devsecops-platform" \
-            --label "org.opencontainers.image.revision=$SOURCE_COMMIT" "$context"
-          mkdir -p artifacts
-          trivy image --no-progress --format cyclonedx --output "artifacts/sbom-$SERVICE.cdx.json" "$image"
-          trivy image --no-progress --severity HIGH,CRITICAL --format json --output "artifacts/vulnerabilities-$SERVICE.json" --exit-code 1 "$image"
           docker push "$image"
           export SIGNED_IMAGE="$(docker inspect --format '{{index .RepoDigests 0}}' "$image")"
           cosign sign --yes "$SIGNED_IMAGE"

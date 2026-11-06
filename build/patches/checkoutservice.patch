@@ -1,0 +1,43 @@
+diff --git a/src/checkoutservice/Dockerfile b/src/checkoutservice/Dockerfile
+index 38405a41..92de4409 100644
+--- a/src/checkoutservice/Dockerfile
++++ b/src/checkoutservice/Dockerfile
+@@ -15,7 +15,7 @@
+ # Define a default value so it's not empty if the builder fails to provide it
+ ARG BUILDPLATFORM=linux/amd64
+ 
+-FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc AS builder
++FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS builder
+ ARG TARGETOS=linux
+ ARG TARGETARCH=amd64
+ WORKDIR /src
+diff --git a/src/checkoutservice/go.mod b/src/checkoutservice/go.mod
+index f49938f0..af5a06de 100644
+--- a/src/checkoutservice/go.mod
++++ b/src/checkoutservice/go.mod
+@@ -1,6 +1,6 @@
+ module github.com/GoogleCloudPlatform/microservices-demo/src/checkoutservice
+ 
+-go 1.25.0
++go 1.26.0
+ 
+ toolchain go1.27.1
+ 
+@@ -38,12 +38,12 @@ require (
+ 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
+ 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
+ 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
+-	golang.org/x/crypto v0.55.0 // indirect
+-	golang.org/x/net v0.58.0 // indirect
++	golang.org/x/crypto v0.57.0 // indirect
++	golang.org/x/net v0.60.0 // indirect
+ 	golang.org/x/oauth2 v0.36.0 // indirect
+-	golang.org/x/sync v0.22.0 // indirect
+-	golang.org/x/sys v0.47.0 // indirect
+-	golang.org/x/text v0.41.0 // indirect
++	golang.org/x/sync v0.23.0 // indirect
++	golang.org/x/sys v0.48.0 // indirect
++	golang.org/x/text v0.42.0 // indirect
+ 	golang.org/x/time v0.15.0 // indirect
+ 	google.golang.org/api v0.274.0 // indirect
+ 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
