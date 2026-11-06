@@ -1,5 +1,14 @@
 admissionController:
-  replicas: 1
+  # Two replicas spread across workers: with Enforce and failurePolicy Fail, a single
+  # replica on a lost node would block every Pod replacement in the app namespaces.
+  replicas: 2
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: admission-controller
   container:
     resources:
       requests: {cpu: 100m, memory: 128Mi}

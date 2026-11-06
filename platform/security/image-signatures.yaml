@@ -3,10 +3,13 @@ kind: ClusterPolicy
 metadata:
   name: boutique-release-signatures
   annotations:
-    policies.kyverno.io/description: Audit images against the platform release workflow while the first signed release is under review.
+    policies.kyverno.io/description: >-
+      Application Pods may only run images signed by this repository's release
+      workflow on main, plus two third-party images pinned to exact digests.
 spec:
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: true
+  webhookTimeoutSeconds: 15
   rules:
     - name: verify-release-signature
       match:
@@ -15,7 +18,7 @@ spec:
               kinds: [Pod]
               namespaces: [boutique-staging, boutique-production]
       verifyImages:
-        - imageReferences: ['*']
+        - imageReferences: ['ghcr.io/oussema-code/boutique-*']
           required: true
           mutateDigest: false
           verifyDigest: true
@@ -26,3 +29,26 @@ spec:
                     issuer: https://token.actions.githubusercontent.com
                     rekor:
                       url: https://rekor.sigstore.dev
+    - name: allowed-image-sources
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [boutique-staging, boutique-production]
+      validate:
+        message: >-
+          Image not allowed: only digest-pinned images signed by the platform release
+          workflow, or the reviewed busybox/redis digests, may run in this namespace.
+        foreach:
+          - list: request.object.spec.[ephemeralContainers, initContainers, containers][]
+            deny:
+              conditions:
+                all:
+                  - key: '{{ element.image }}'
+                    operator: AnyNotIn
+                    value:
+                      - 'ghcr.io/oussema-code/boutique-*@sha256:*'
+                      # Upstream load generator init container (frontend readiness wait).
+                      - 'busybox:1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616'
+                      # Cart store; also used by scripts/redis-snapshot.py restore helpers.
+                      - 'redis:alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537'

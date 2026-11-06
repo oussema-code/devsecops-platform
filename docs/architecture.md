@@ -61,6 +61,7 @@ flowchart LR
 | 2026-11-05 | Persistent Redis volumes plus backup/restore | Carts survive Pod restarts; node loss needs a restore. |
 | 2026-11-05 | Maintain a reviewed patch set for the eleven image builds | Independent remediation path; patches are this project's maintenance. |
 | 2026-11-05 | Kyverno signatures in Audit until the first signed release | Running upstream images keep working; switch to Enforce afterwards. |
+| 2026-11-06 | Enforce: platform-signed images plus two digest-pinned third-party images | busybox and redis are not rebuilt by this project; their exact digests are reviewed exceptions. Two admission replicas so node loss cannot block Pod replacement. |
 | 2026-11-05 | Maintained LocalStack with a locally supplied token | Current emulator; requires a free account token kept out of Git. |
 | 2026-11-06 | Canary the frontend first with checkout analysis and automatic abort | Customer-journey check on the candidate; backends need their own checks later. |
 

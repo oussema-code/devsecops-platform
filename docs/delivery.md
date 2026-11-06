@@ -49,6 +49,17 @@ When all checks pass, CI commits the digest set to staging. Argo CD then deploys
 it. CI uses a write-scoped token only in the staging-update job; build jobs have
 package publishing and OIDC permissions. Pull-request validation is read-only.
 
+## Admission control
+
+Kyverno enforces `boutique-release-signatures` on every Pod in both Boutique
+namespaces. Images under `ghcr.io/oussema-code/boutique-*` must carry a Cosign
+keyless signature from `release.yml` on `main`. Any other image is rejected unless
+it is pinned to a digest, and only the two reviewed busybox and redis digests are
+listed. The policy covers containers, init containers and ephemeral containers,
+including the canary analysis Job. Changing a third-party digest therefore needs a
+policy change in the same reviewed commit. `tests/test_admission_policy.py` fails
+when a rendered image would be rejected.
+
 ## Progressive frontend delivery
 
 The storefront frontend is released by Argo Rollouts, not a plain Deployment update.
