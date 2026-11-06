@@ -67,25 +67,40 @@ required. The former learning checkpoints are historical, not implementation gat
   S3 Control now targets `localhost.localstack.cloud:14566`. The verifier now uses
   LocalStack's own Python, which has boto3.
 
+## Verified frontend canary — 2026-11-06 (commits 00cb8dc, f0fec3f)
+
+- Argo Rollouts 2.43.9 installed. Frontend Pods handed to the `frontend` Rollout in
+  both environments with no storefront gap; the Deployment is held at 0 replicas.
+- Staging auto-synced and production was explicitly synced to `main`; both Synced.
+  Argo CD ignores only the Rollouts-managed selector hash on `frontend-canary`.
+- `make verify` passed: 3 nodes, checkout in both environments, network isolation.
+- `make canary-drill` on production: a candidate that cannot reach the catalog was
+  aborted by AnalysisRun `frontend-59d7cd498d-2-1` (Failed). Stable Pods kept serving
+  checkout and the canary scaled down. A harmless candidate passed analysis
+  (`frontend-659c75b9df-4-1` Successful) and was promoted. The Git-defined template
+  was then restored through a second passing canary.
+- Log: `.platform/platform-run.log`. Runner: `scripts/run-platform-steps.sh`.
+
+## Verified admission control install — 2026-11-06
+
+- Kyverno 3.9.2 (v1.19.2) installed after the failed first install was removed.
+  `boutique-release-signatures` is Ready in **Audit** mode. Enforce is pending the
+  first signed release running in both environments.
+
 ## Not working / not yet verified
 
-- Kyverno 3.9.2 install timed out (`context deadline exceeded`); the signature
-  policy is not active. `make security-up` now removes a failed first install,
-  waits up to 15 minutes, and prints Pod/event diagnostics on failure.
-- Frontend canary (2026-11-06, authored, verified statically only): Argo Rollouts
-  chart 2.43.9, `Rollout` using `workloadRef` to the frontend Deployment, 50% step,
-  checkout analysis against `frontend-canary`, automatic abort. Manifests validated
-  against the Rollouts v1.10.2 CRD schemas; 18 unit tests pass. Not yet installed,
-  migrated or drilled on the cluster.
+- First signed release, run 42245962626 (after PR #1 merged as 48ce295): all
+  11 images built, passed Trivy HIGH/CRITICAL, were published to GHCR, signed with
+  Cosign and given SBOM attestations. The `stage` job then stopped, as designed,
+  on anonymous pull `unauthorized`: the GHCR packages are still private.
+  Staging was not changed.
 
 ## Next operator steps
 
-1. `make security-up` (after confirming the cluster is healthy).
-2. `make observability-up` (loads the dashboard and the canary-abort alert).
-3. `make rollouts-up`, `make rollout-migrate`, then commit and push the canary change.
-4. Wait for staging to sync; explicitly sync `boutique-production`; `make verify`.
-5. `make canary-drill` (production: broken candidate aborts, good one promotes).
-6. Review and merge PR #1, then dispatch the release workflow.
+1. Make the 11 `boutique-*` GHCR packages public; re-run the failed `stage` job.
+2. Watch staging take the signed release through the frontend canary; check
+   Kyverno policy reports; promote to production; switch the policy to Enforce.
+3. Recovery drills (worker loss, Redis restore); optional frontend autoscaling.
 
 ## Observed limitations
 
