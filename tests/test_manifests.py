@@ -40,6 +40,13 @@ def validate(objects):
                 if not env["name"].endswith("_ADDR") or ":" not in env.get("value", ""):
                     continue
                 dest, port = env["value"].rsplit(":", 1)
+                if env["name"] == "COLLECTOR_SERVICE_ADDR":
+                    assert dest == "otel.monitoring.svc" and port == "4317"
+                    rule = policies["export-traces"]["egress"][0]
+                    assert rule["to"][0]["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] == "monitoring"
+                    assert rule["to"][0]["podSelector"]["matchLabels"]["app.kubernetes.io/instance"] == "otel"
+                    assert {"port": 4317, "protocol": "TCP"} in rule["ports"]
+                    continue
                 if dest == "shoppingassistantservice":
                     continue  # Upstream optional feature is disabled in this release.
                 assert dest in services, (name, dest)
