@@ -1,3 +1,5 @@
+# Argo Rollouts adds the candidate's pod-template-hash to frontend-canary's selector
+# during a canary. Ignore exactly that runtime field so it is not reported as drift.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -17,11 +19,22 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
+    - CreateNamespace=true
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=true
     retry:
       limit: 3
-      backoff: {duration: 5s, factor: 2, maxDuration: 1m}
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+  ignoreDifferences:
+  - group: ''
+    kind: Service
+    name: frontend-canary
+    jsonPointers:
+    - /spec/selector/rollouts-pod-template-hash
+    - /metadata/annotations/argo-rollouts.argoproj.io~1managed-by-rollouts
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -39,5 +52,13 @@ spec:
     namespace: boutique-production
   syncPolicy:
     syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
+    - CreateNamespace=true
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=true
+  ignoreDifferences:
+  - group: ''
+    kind: Service
+    name: frontend-canary
+    jsonPointers:
+    - /spec/selector/rollouts-pod-template-hash
+    - /metadata/annotations/argo-rollouts.argoproj.io~1managed-by-rollouts

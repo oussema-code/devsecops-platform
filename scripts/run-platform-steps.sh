@@ -75,6 +75,9 @@ if [[ "$(git rev-parse HEAD)" != "$(git rev-parse '@{u}' 2>/dev/null)" ]]; then
 fi
 sha="$(git rev-parse HEAD)"
 
+step "Apply Argo CD Application definitions"
+k apply -f platform/gitops/applications.yaml || fail "apply applications"
+
 step "Wait for staging to sync $sha"
 k -n argocd annotate application boutique-staging argocd.argoproj.io/refresh=hard --overwrite >/dev/null
 for _ in $(seq 1 120); do
@@ -90,7 +93,7 @@ if [[ "$(app_state boutique-production)" != "$sha Synced Healthy"* ]]; then
   confirm "Sync boutique-production to $sha now?" || fail "production sync declined (re-run when ready)"
   k -n argocd annotate application boutique-production argocd.argoproj.io/refresh=hard --overwrite >/dev/null
   k -n argocd patch application boutique-production --type merge -p \
-    "{\"operation\":{\"initiatedBy\":{\"username\":\"$USER\"},\"sync\":{\"revision\":\"$sha\",\"syncOptions\":[\"CreateNamespace=true\",\"ServerSideApply=true\"]}}}" \
+    "{\"operation\":{\"initiatedBy\":{\"username\":\"$USER\"},\"sync\":{\"revision\":\"$sha\",\"syncOptions\":[\"CreateNamespace=true\",\"ServerSideApply=true\",\"RespectIgnoreDifferences=true\"]}}}" \
     || fail "start production sync"
   for _ in $(seq 1 120); do
     state="$(app_state boutique-production)"; echo "production: $state"

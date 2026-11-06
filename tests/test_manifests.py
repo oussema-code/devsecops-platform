@@ -194,6 +194,16 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             validate_canary(objects)
 
+    def test_argocd_ignores_only_rollouts_selector_on_canary_service(self):
+        apps = list(yaml.safe_load_all((ROOT / "platform/gitops/applications.yaml").read_text()))
+        self.assertEqual(len(apps), 2)
+        for app in apps:
+            ignored = app["spec"]["ignoreDifferences"]
+            self.assertEqual([(i["kind"], i["name"]) for i in ignored], [("Service", "frontend-canary")])
+            self.assertIn("/spec/selector/rollouts-pod-template-hash", ignored[0]["jsonPointers"])
+            self.assertNotIn("/spec/selector", ignored[0]["jsonPointers"])
+            self.assertIn("RespectIgnoreDifferences=true", app["spec"]["syncPolicy"]["syncOptions"])
+
     def test_canary_check_matches_verify_journey(self):
         self.assertEqual((ROOT / "scripts/smoke-test.py").read_bytes(),
                          (ROOT / "apps/online-boutique/base/storefront-check.py").read_bytes())
