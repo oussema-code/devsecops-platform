@@ -29,6 +29,9 @@ runs:
           set -euo pipefail
           git -C upstream apply --check "$GITHUB_WORKSPACE/build/patches/$SERVICE.patch"
           git -C upstream apply "$GITHUB_WORKSPACE/build/patches/$SERVICE.patch"
+          if [[ -f "build/locks/$SERVICE/go.sum" ]]; then
+            cp "build/locks/$SERVICE/go.sum" "upstream/src/$SERVICE/go.sum"
+          fi
       - name: Install pinned Trivy
         shell: bash
         env:
