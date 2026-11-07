@@ -64,8 +64,8 @@ check Service endpoints and Hubble drops before changing network policies.
 - Hubble UI and Relay use ClusterIP services and are accessed through loopback
   tunnels. Relay's client-facing gRPC TLS is not enabled in this local setup.
   Agent-to-relay TLS uses the Cilium chart defaults. Do not expose Relay publicly.
-- Deleting the new cluster destroys its local state. The old lab is a different
-  cluster and must never be targeted by platform cleanup.
+- Deleting the cluster destroys its local state, including the Redis volumes.
+  Take a `scripts/redis-snapshot.py` backup first if carts matter.
 
 ## Frontend canary
 

@@ -163,6 +163,5 @@ This is a local, production-style platform, not an Internet-facing deployment:
 
 ## License
 
-The platform code is in this repository. The Online Boutique manifests keep
-Google's Apache-2.0 license (`apps/online-boutique/base/LICENSE`). The LocalStack
+The Online Boutique manifests keep Google's Apache-2.0 license (`apps/online-boutique/base/LICENSE`). The LocalStack
 Lambda sample keeps its license in `infra/localstack/sample/`.

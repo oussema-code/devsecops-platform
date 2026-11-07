@@ -1,14 +1,13 @@
 # Platform architecture
 
-Status: foundation implementation in progress. The target delivery and telemetry
-systems below are planned until marked verified in `IMPLEMENTATION_STATUS.md`.
+Status: implemented and verified. Evidence for each component is recorded in
+`IMPLEMENTATION_STATUS.md`.
 
 ## Approved local topology
 
 ```mermaid
 flowchart TB
   Host[Ubuntu host / Docker]
-  Host --> Old[Existing devsecops-lab: preserved]
   Host --> CP[Platform control plane]
   Host --> W1[Platform worker 1]
   Host --> W2[Platform worker 2]
@@ -22,11 +21,11 @@ flowchart TB
 
 The platform uses `.platform/kubeconfig` and context `kind-devsecops-platform`.
 The API listens on loopback. Pod CIDR is `10.246.0.0/16`; Service CIDR is
-`10.112.0.0/16`, separate from the old lab. Cilium uses Kubernetes IPAM and
+`10.112.0.0/16`. Cilium uses Kubernetes IPAM and
 retains kube-proxy. One control plane is not HA; all three nodes share a physical
 host. This simulates worker loss, not host-level disaster tolerance.
 
-## Target delivery architecture
+## Delivery architecture
 
 ```mermaid
 flowchart LR
@@ -49,7 +48,7 @@ flowchart LR
 
 | Date | Decision | Rationale / trade-off |
 | --- | --- | --- |
-| 2026-11-05 | Separate three-node cluster | Preserve existing work; permit worker recovery tests; consumes more RAM. |
+| 2026-11-05 | Three-node kind cluster | Permits worker-loss tests; consumes more RAM than a single node. |
 | 2026-11-05 | Platform repository separate from upstream | Own infrastructure and delivery history without modifying application features. |
 | 2026-11-05 | Pin Online Boutique v0.10.7 commit and workload digests | Reproduce the existing working baseline; upgrades must be explicit. |
 | 2026-11-05 | Cilium with Hubble | Enforce network policies and inspect flows; more components than kindnet. |

@@ -1,19 +1,12 @@
 # Implementation status
 
-## Working agreement
-
-2026-11-05: implementation mode. The assistant builds and verifies the project;
-the user chooses major architectural decisions. Architecture diagrams remain
-required. The former learning checkpoints are historical, not implementation gates.
-
 ## Approved architecture
 
 - New kind cluster `devsecops-platform`: one control-plane node, two workers.
-- Preserve `devsecops-lab` and its kubeconfig and application.
-- Separate platform repository at the workspace root; pin upstream Online Boutique.
+- Platform repository separate from the application; upstream Online Boutique pinned.
 - Cilium with Hubble for network policy enforcement and flow inspection.
 - Staging and production namespaces in the shared platform cluster.
-- Private GitHub repository `oussema-code/devsecops-platform`.
+- GitHub repository `oussema-code/devsecops-platform` (public since 2026-11-07).
 
 ## Verified foundation — 2026-11-05
 
@@ -40,7 +33,7 @@ required. The former learning checkpoints are historical, not implementation gat
   foundation revision `f55452ca8a9630a68faec797fe82a11d24b463a1`.
 - Release artifact validation tests pass; GitHub workflow syntax passes actionlint.
 
-## Verified since the delivery foundation (2026-11-05/06, Codex sessions)
+## Verified since the delivery foundation (2026-11-05/06)
 
 - Redis carts in both environments moved to persistent claims (`redis-cart-data`,
   Argo CD `Prune=false`). Snapshots were restored into fresh Redis instances and
@@ -61,7 +54,7 @@ required. The former learning checkpoints are historical, not implementation gat
   Guarded plan and apply created all resources with no deletions. A re-plan reports
   no changes. `make aws-verify`: S3 upload plus duplicate SQS delivery are processed
   twice into one identical DynamoDB item, and a poison message reaches the DLQ.
-  Log: `.platform/aws-lab-run.log`. One-shot runner: `scripts/run-aws-lab.sh`.
+  Run with `make aws-up aws-plan aws-apply aws-verify`.
 - Fixes found during the run: provider >= 6.23 reads bucket tags via S3 Control,
   which was not redirected and reached real AWS (rejected, 403, nothing created).
   S3 Control now targets `localhost.localstack.cloud:14566`. The verifier now uses
@@ -79,7 +72,7 @@ required. The former learning checkpoints are historical, not implementation gat
   checkout and the canary scaled down. A harmless candidate passed analysis
   (`frontend-659c75b9df-4-1` Successful) and was promoted. The Git-defined template
   was then restored through a second passing canary.
-- Log: `.platform/platform-run.log`. Runner: `scripts/run-platform-steps.sh`.
+- Reproduce with `make rollouts-up rollout-migrate` and `make canary-drill`.
 
 ## Verified first signed release — 2026-11-06
 
