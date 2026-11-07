@@ -81,33 +81,49 @@ required. The former learning checkpoints are historical, not implementation gat
   was then restored through a second passing canary.
 - Log: `.platform/platform-run.log`. Runner: `scripts/run-platform-steps.sh`.
 
-## Verified admission control install — 2026-11-06
+## Verified first signed release — 2026-11-06
 
-- Kyverno 3.9.2 (v1.19.2) installed after the failed first install was removed.
-  `boutique-release-signatures` is Ready in **Audit** mode. Enforce is pending the
-  first signed release running in both environments.
+- Run 42245962626 (PR #1 merged as 48ce295): 11 images built from upstream
+  5b608cb with reviewed patches, passed Trivy HIGH/CRITICAL, published to GHCR,
+  signed with Cosign keyless and attested with CycloneDX SBOMs. The `stage` job first
+  stopped on private packages, as designed. After the packages were made public it
+  committed 72fbd7a.
+- Staging: canary AnalysisRun `frontend-5694d6c78-2-1` Successful; all 11 services on
+  `ghcr.io/oussema-code/boutique-*` digests; `verify-platform.py` PASS.
+- Production: PR #2 (89b8fa6) copied the same digests, then an explicit sync approved by
+  the operator. Canary AnalysisRun `frontend-5694d6c78-6-1` Successful, 2 replicas per
+  service, `verify-platform.py` PASS. Evidence: `.platform/release-check-*.txt`.
 
-## Not working / not yet verified
+## Verified admission control and recovery — 2026-11-07 (`scripts/finish-platform.sh`)
 
-- First signed release, run 42245962626 (after PR #1 merged as 48ce295): all
-  11 images built, passed Trivy HIGH/CRITICAL, were published to GHCR, signed with
-  Cosign and given SBOM attestations. The `stage` job then stopped, as designed,
-  on anonymous pull `unauthorized`: the GHCR packages are still private.
-  Staging was not changed.
+- Kyverno 3.9.2 (v1.19.2), 2 admission replicas on different workers.
+  `boutique-release-signatures` in **Enforce**: platform images must be signed by
+  `release.yml` on `main`; anything else must match the reviewed busybox/redis digests.
+- Server-side dry runs: the signed checkoutservice digest was admitted. The upstream
+  Google image, `nginx:1.29` and the tag-only `boutique-checkoutservice:latest` were
+  denied by the policy. A signed workload (cartservice) restarted normally under Enforce.
+- Redis restore drill: a production backup (16 keys, checksum OK) was restored into a
+  new claim and loaded by an isolated Redis. The drill claim was then deleted.
+- Worker-loss drill: `devsecops-platform-worker2` (7 production Pods, not Redis) was
+  stopped for 8 minutes. Production checkout: 1 failure at t+10s, then 28 consecutive
+  successes from t+46s. Replacement Pods scheduled on the remaining worker. After the
+  node returned, every Deployment recovered and `verify-platform.py` passed in both
+  environments; both Argo CD apps Synced/Healthy.
+- Observation: several worker2 Pods and one Kyverno replica showed a container restart
+  about 3 minutes before the drill, during the Kyverno upgrade. Not investigated.
 
-## Next operator steps
+## Remaining options (not required)
 
-1. Make the 11 `boutique-*` GHCR packages public; re-run the failed `stage` job.
-2. Watch staging take the signed release through the frontend canary; check
-   Kyverno policy reports; promote to production; switch the policy to Enforce.
-3. Recovery drills (worker loss, Redis restore); optional frontend autoscaling.
+- Frontend HorizontalPodAutoscaler with a load test.
+- Canary analysis for backend services (needs a mesh or per-service checks).
+- Migrate the Kyverno policy to `ImageValidatingPolicy` before the legacy API is removed.
 
 ## Observed limitations
 
 Redis is single-replica; its local volume is tied to one worker, so node loss
 requires restore from backup. Both environments share one host and one control
-plane. PodDisruptionBudgets are not evidence of failure recovery. No worker-failure
-experiment has been performed. The canary uses replica-ratio traffic splitting
+plane. The worker-loss drill stopped a node container, not the host; losing the
+worker that holds a Redis volume still requires the restore procedure. The canary uses replica-ratio traffic splitting
 (no service mesh), so during analysis about half of real requests reach the
 candidate. Only the frontend is canaried; backends roll with Deployment updates.
 Runtime inotify limits must be raised after each reboot. No claims of production readiness.

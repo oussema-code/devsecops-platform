@@ -17,13 +17,14 @@ known limits.
 | Area | What is in place | Evidence |
 | --- | --- | --- |
 | **Supply chain** | All 11 images rebuilt from pinned source with a reviewed patch set. Each is scanned by Trivy (HIGH/CRITICAL gate), signed with Cosign keyless, and gets a CycloneDX SBOM. | Release run 42245962626 |
-| **Admission control** | Kyverno **Enforce**: only images signed by this repo's release workflow, or two reviewed digest-pinned exceptions, run in the app namespaces. 2 admission replicas. | Signed image admitted; policy unit-tested with the Kyverno CLI |
+| **Admission control** | Kyverno **Enforce**: only images signed by this repo's release workflow, or two reviewed digest-pinned exceptions, run in the app namespaces. 2 admission replicas. | Signed image admitted; upstream, untrusted and tag-only images rejected |
 | **GitOps** | Argo CD. Staging deploys automatically from `main`. Production needs a reviewed PR **and** an explicit sync. | First signed release promoted via PR #2 |
 | **Progressive delivery** | Argo Rollouts canary for the storefront. 50% step, a checkout analysis against candidate Pods only, **automatic abort**. | Drill: broken build aborted, good build promoted |
 | **Network security** | Cilium default-deny with an explicit allow-list per service. Staging cannot reach production. Hubble for flow inspection. | `make verify` isolation checks |
 | **Workload hardening** | Restricted Pod Security, non-root, read-only root FS, dropped capabilities, quotas, PDBs, digest-pinned images. | Manifest tests (22) |
 | **Observability** | Prometheus, Grafana, Loki, Tempo, OpenTelemetry Collector, Alloy, a blackbox storefront probe, and alerts that include canary aborts. | Probe and trace span-metric series queried |
-| **Data** | Persistent Redis volumes with checksum-verified backup and restore into a fresh volume. | Restore verified |
+| **Data** | Persistent Redis volumes with checksum-verified backup and restore into a fresh volume. | Production backup restored and loaded (16 keys) |
+| **Resilience** | 2 replicas and PDBs per service, spread across workers. | Worker stopped for 8 min: 28 of 29 checkouts succeeded, recovered within ~45 s |
 | **Infrastructure as code** | OpenTofu → LocalStack AWS lab (S3 → SQS → Lambda → DynamoDB plus DLQ) with a plan guard that blocks deletions and replacements. | Idempotency and DLQ checks pass |
 
 ## Architecture
@@ -126,6 +127,7 @@ every port forward binds to loopback.
 ### Operational drills
 
 ```bash
+bash scripts/finish-platform.sh                     # admission proofs, Redis restore, worker-loss drill
 make canary-drill                                   # broken build aborts, good build promotes
 python3 scripts/redis-snapshot.py production backup .platform/backups/prod.rdb
 python3 scripts/redis-snapshot.py production restore .platform/backups/prod.rdb new-claim
