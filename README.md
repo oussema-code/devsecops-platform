@@ -6,6 +6,10 @@ A production-style delivery platform built around Google's
 not modified. This repository owns everything around it, from the vulnerability
 patches through admission, deployment, observability and recovery.
 
+![Recorded results: Kyverno rejects unsigned images, the canary aborts a broken release, production survives a worker loss](docs/demo/demo.gif)
+
+*Condensed replay of real run output ([how it was made](docs/demo/README.md)).*
+
 Every claim below is backed by a recorded run. See
 [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for evidence, run IDs and
 known limits.
