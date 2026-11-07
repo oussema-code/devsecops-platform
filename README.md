@@ -31,20 +31,20 @@ known limits.
 
 ```mermaid
 flowchart LR
-  subgraph GitHub
+  subgraph gh["GitHub"]
     Src[Pinned upstream source<br/>+ reviewed patches] --> CI[GitHub Actions]
     CI --> Gate[Tests · Gitleaks · Trivy gate]
     Gate --> Img[GHCR images<br/>Cosign signature + SBOM]
     Img --> Stage[Bot commit: digests → staging overlay]
     Stage --> PR[Reviewed PR: same digests → production]
   end
-  subgraph kind cluster - 3 nodes, Cilium
+  subgraph k8s["kind cluster: 3 nodes, Cilium"]
     Argo[Argo CD]
     Kyv[Kyverno: Enforce signatures]
-    subgraph boutique-staging
+    subgraph stg["boutique-staging"]
       S[11 services + Redis]
     end
-    subgraph boutique-production
+    subgraph prd["boutique-production"]
       P[11 services + Redis<br/>frontend via Argo Rollouts canary]
     end
     Obs[Prometheus · Loki · Tempo · Grafana]
@@ -53,8 +53,8 @@ flowchart LR
   PR -->|explicit sync| Argo
   Argo --> S
   Argo --> P
-  Kyv -.admits.-> S
-  Kyv -.admits.-> P
+  Kyv -. admits .-> S
+  Kyv -. admits .-> P
   S --> Obs
   P --> Obs
   IaC[OpenTofu] --> LS[LocalStack AWS lab]
